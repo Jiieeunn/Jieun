@@ -1,0 +1,100 @@
+---
+title: "Pracical Machine Learning - Course Project"
+author: "Ji Eun Kim"
+date: "2022-12-29"
+output: html_document
+---
+
+1.  Data road
+
+```{r}
+library(lattice)
+library(ggplot2)
+library(caret)
+library(kernlab)
+library(rattle)
+library(corrplot)
+pmltraining<-read.csv("pml-training.csv")
+pmltesting<-read.csv("pml-testing.csv")
+set.seed(1234)
+dim(pmltraining)
+dim(pmltesting)
+```
+
+2.  Cleaning the Data
+
+```{r}
+pmltraining <-pmltraining[,colMeans(is.na(pmltraining))<.9] #to remove most of na columns
+pmltraining<-pmltraining[,-c(1:7)]#to remove metadata which is irrelevant to the outcome 
+```
+
+Remove near Zero variance variables
+
+```{r}
+nvz<-nearZeroVar(pmltraining)
+pmltraining <- pmltraining[,-nvz]
+dim(pmltraining)
+```
+
+Split the training set into a validation and sub training.
+
+```{r}
+intrain <-createDataPartition(y=pmltraining$classe,p=0.7,list=FALSE)
+train<-pmltraining[intrain,]
+valid<-pmltraining[-intrain,]
+```
+
+3.  Creating and Testing the models setup control for training to use 3-fold cross validation
+
+```{r}
+control <-trainControl(method="cv",number=3, verboseIter=F)
+```
+
+Decision tree
+
+```{r}
+tree<-train(classe~.,data=train,method="rpart",trControl=control,tuneLength=5)
+fancyRpartPlot(tree$finalModel)
+```
+
+Prediction
+
+```{r}
+predtree<-predict(tree,valid)
+cmtree<-confusionMatrix(predtree,factor(valid$classe))
+cmtree
+```
+
+Random forest
+
+```{r}
+rforest<-train(classe~.,data=train,method="rf",trControl=control,tuneLength=5)
+pforest<-predict(rforest,valid)
+cmrf<-confusionMatrix(pforest,factor(valid$classe))
+cmrf
+```
+
+Gradient boosted trees
+
+```{r}
+gbm<-train(classe~.,data=train,method="gbm",trControl=control,tuneLength=5,verbose=F)
+pgbm<-predict(gbm,valid)
+cmgb<-confusionMatrix(pgbm,factor(valid$classe))
+cmgb
+```
+
+Support vector machine
+
+```{r}
+svm<- train(classe~.,data=train,method="svmLinear",trControl=control,tuneLength=5,verbose=F)
+predsvm<-predict(svm,valid)
+cmsvm<-confusionMatrix(predsvm,factor(valid$classe))
+cmsvm
+```
+
+Prediction
+
+```{r}
+predict <- predict(rforest,pmltesting)
+print(predict)
+```
